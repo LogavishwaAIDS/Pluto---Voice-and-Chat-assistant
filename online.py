@@ -29,21 +29,30 @@ def search_on_wikipedia(query):
 
 
 def search_on_google(query):
-    """Return top few text results instead of opening browser."""
+    """Search Google using Serper API and return top 5 results."""
+    import json
+    headers = {
+        'X-API-KEY': os.getenv('SERPER_API_KEY', ''),
+        'Content-Type': 'application/json'
+    }
+    data = json.dumps({"q": query, "num": 5})
     try:
-        url = f"https://duckduckgo.com/html/?q={query}"
-        r = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(r.text, "html.parser")
+        resp = requests.post("https://google.serper.dev/search", headers=headers, data=data, timeout=8)
+        res = resp.json()
         results = []
-        for link in soup.select(".result__a")[:5]:
-            title = link.get_text()
-            href = link.get("href")
-            results.append(f"{title} — {href}")
-        return results if results else ["No results found."]
+        if 'organic' in res:
+            for r in res['organic'][:5]:
+                title = r.get('title', '')
+                link = r.get('link', '')
+                snippet = r.get('snippet', '')
+                results.append(f"🔗 [{title}]({link})\n> {snippet}")
+            return results
+        else:
+            return ["No results found or invalid API key."]
     except Exception as e:
-        print("search_on_google error:", e)
-        return ["Search unavailable."]
+        print("Google search error:", e)
+        return [f"Search failed: {e}"]
+
 
 
 
@@ -112,4 +121,5 @@ def weather_forecast(city):
     except Exception as e:
         print("weather_forecast error:", e)
         return ("error", "N/A", "N/A")
+
 
