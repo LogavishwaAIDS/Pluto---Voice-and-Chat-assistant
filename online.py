@@ -29,11 +29,22 @@ def search_on_wikipedia(query):
 
 
 def search_on_google(query):
+    """Return top few text results instead of opening browser."""
     try:
-        webbrowser.open(f"https://www.google.com/search?q={query}")
-        return f"Opened Google search for {query}"
+        url = f"https://duckduckgo.com/html/?q={query}"
+        r = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(r.text, "html.parser")
+        results = []
+        for link in soup.select(".result__a")[:5]:
+            title = link.get_text()
+            href = link.get("href")
+            results.append(f"{title} — {href}")
+        return results if results else ["No results found."]
     except Exception as e:
-        return f"Could not open Google: {e}"
+        print("search_on_google error:", e)
+        return ["Search unavailable."]
+
 
 
 def youtube(video):
@@ -101,3 +112,4 @@ def weather_forecast(city):
     except Exception as e:
         print("weather_forecast error:", e)
         return ("error", "N/A", "N/A")
+
