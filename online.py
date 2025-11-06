@@ -1,11 +1,11 @@
-# online.py - safe helper functions with graceful fallbacks
+# online.py - headless version (for Streamlit Cloud)
 import os
 import requests
 import wikipedia
-import pywhatkit as kit
 from email.message import EmailMessage
 import smtplib
 import xml.etree.ElementTree as ET
+import webbrowser  # safe alternative to pywhatkit
 
 NEWSAPI_KEY = os.getenv('NEWSAPI_KEY', '')
 OPENWEATHER_KEY = os.getenv('OPENWEATHER_KEY', '')
@@ -30,17 +30,18 @@ def search_on_wikipedia(query):
 
 def search_on_google(query):
     try:
-        kit.search(query)
-    except Exception:
-        # on servers, this will do nothing but won't crash
-        pass
+        webbrowser.open(f"https://www.google.com/search?q={query}")
+        return f"Opened Google search for {query}"
+    except Exception as e:
+        return f"Could not open Google: {e}"
 
 
 def youtube(video):
     try:
-        kit.playonyt(video)
-    except Exception:
-        pass
+        webbrowser.open(f"https://www.youtube.com/results?search_query={video}")
+        return f"Opened YouTube search for {video}"
+    except Exception as e:
+        return f"Could not open YouTube: {e}"
 
 
 def send_email(receiver_add, subject, message):
@@ -64,7 +65,6 @@ def send_email(receiver_add, subject, message):
 
 
 def get_news():
-    """Return list of headlines. Prefer NewsAPI if key available, otherwise fallback to Google News RSS."""
     try:
         if NEWSAPI_KEY:
             result = requests.get(
@@ -74,20 +74,17 @@ def get_news():
             articles = result.get("articles", [])
             return [a.get("title", "").strip() for a in articles[:6] if a.get("title")]
         else:
-            # fallback: parse Google News RSS (public)
             rss = "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en"
             r = requests.get(rss, timeout=8)
             root = ET.fromstring(r.content)
             items = root.findall('.//item')[:6]
-            headlines = [item.find('title').text for item in items if item.find('title') is not None]
-            return headlines
+            return [i.find('title').text for i in items if i.find('title') is not None]
     except Exception as e:
         print("get_news error:", e)
         return ["News unavailable right now."]
 
 
 def weather_forecast(city):
-    """Return (weather, temp, feels_like) — if no key, return friendly message."""
     try:
         if not OPENWEATHER_KEY:
             return ("No API key", "N/A", "N/A")
