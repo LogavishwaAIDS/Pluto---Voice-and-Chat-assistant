@@ -1,0 +1,15 @@
+{
+  "builds": [
+    {
+      "src": "app_web.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "100mb", "runtime": "python3.11" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app_web.py"
+    }
+  ]
+}

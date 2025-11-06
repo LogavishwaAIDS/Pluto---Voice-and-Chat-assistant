@@ -1,0 +1,7 @@
+streamlit
+gTTS
+wikipedia
+requests
+pywhatkit
+python-decouple
+newsapi-python

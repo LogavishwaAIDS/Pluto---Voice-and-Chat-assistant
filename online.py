@@ -1,0 +1,106 @@
+# online.py - safe helper functions with graceful fallbacks
+import os
+import requests
+import wikipedia
+import pywhatkit as kit
+from email.message import EmailMessage
+import smtplib
+import xml.etree.ElementTree as ET
+
+NEWSAPI_KEY = os.getenv('NEWSAPI_KEY', '')
+OPENWEATHER_KEY = os.getenv('OPENWEATHER_KEY', '')
+EMAIL = os.getenv('PLUTO_EMAIL', '')
+PASSWORD = os.getenv('PLUTO_EMAIL_PASSWORD', '')
+
+
+def find_my_ip():
+    try:
+        ip_address = requests.get('https://api64.ipify.org?format=json', timeout=6).json()
+        return ip_address.get('ip')
+    except Exception:
+        return "Unavailable"
+
+
+def search_on_wikipedia(query):
+    try:
+        return wikipedia.summary(query, sentences=2)
+    except Exception as e:
+        return f"Wikipedia fetch error: {e}"
+
+
+def search_on_google(query):
+    try:
+        kit.search(query)
+    except Exception:
+        # on servers, this will do nothing but won't crash
+        pass
+
+
+def youtube(video):
+    try:
+        kit.playonyt(video)
+    except Exception:
+        pass
+
+
+def send_email(receiver_add, subject, message):
+    if not EMAIL or not PASSWORD:
+        return False
+    try:
+        email = EmailMessage()
+        email['To'] = receiver_add
+        email['Subject'] = subject
+        email['From'] = EMAIL
+        email.set_content(message)
+        s = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+        s.starttls()
+        s.login(EMAIL, PASSWORD)
+        s.send_message(email)
+        s.close()
+        return True
+    except Exception as e:
+        print("send_email error:", e)
+        return False
+
+
+def get_news():
+    """Return list of headlines. Prefer NewsAPI if key available, otherwise fallback to Google News RSS."""
+    try:
+        if NEWSAPI_KEY:
+            result = requests.get(
+                f"https://newsapi.org/v2/top-headlines?country=in&category=general&apiKey={NEWSAPI_KEY}",
+                timeout=8
+            ).json()
+            articles = result.get("articles", [])
+            return [a.get("title", "").strip() for a in articles[:6] if a.get("title")]
+        else:
+            # fallback: parse Google News RSS (public)
+            rss = "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en"
+            r = requests.get(rss, timeout=8)
+            root = ET.fromstring(r.content)
+            items = root.findall('.//item')[:6]
+            headlines = [item.find('title').text for item in items if item.find('title') is not None]
+            return headlines
+    except Exception as e:
+        print("get_news error:", e)
+        return ["News unavailable right now."]
+
+
+def weather_forecast(city):
+    """Return (weather, temp, feels_like) — if no key, return friendly message."""
+    try:
+        if not OPENWEATHER_KEY:
+            return ("No API key", "N/A", "N/A")
+        res = requests.get(
+            f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_KEY}&units=metric",
+            timeout=8
+        ).json()
+        if res.get("cod") != 200:
+            return (res.get("message", "error"), "N/A", "N/A")
+        weather = res["weather"][0]["main"]
+        temp = res["main"]["temp"]
+        feels_like = res["main"]["feels_like"]
+        return weather, f"{temp}°C", f"{feels_like}°C"
+    except Exception as e:
+        print("weather_forecast error:", e)
+        return ("error", "N/A", "N/A")
