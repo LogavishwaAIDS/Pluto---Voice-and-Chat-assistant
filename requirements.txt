@@ -5,3 +5,4 @@ requests
 pywhatkit
 python-decouple
 newsapi-python
+beautifulsoup4
